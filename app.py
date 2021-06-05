@@ -58,10 +58,39 @@ class UserObject(SQLAlchemyObjectType):
         interfaces = (graphene.relay.Node,)
 
 
+class Hellyson(graphene.ObjectType):
+    first_name = graphene.String()
+    last_name = graphene.String()
+
+    full_name = graphene.String()
+
+    def resolve_full_name(self, info):
+        full_name = f'{self.first_name} {self.last_name}'
+        
+        return full_name
+class Quadrado(graphene.ObjectType):
+    l1 = graphene.Float()
+    l2 = graphene.Float()
+    area = graphene.Float()
+
+    def resolve_area(self,info):
+        area = self.l1 * self.l2
+
+        return area
+
 class Query(graphene.ObjectType):
     node = graphene.relay.Node.Field()
     all_posts = SQLAlchemyConnectionField(PostObject)
     all_users = SQLAlchemyConnectionField(UserObject)
+    hellyson = graphene.Field(Hellyson, first_name=graphene.String(), last_name=graphene.String())
+    quadrado = graphene.Field(Quadrado,l1=graphene.Float(),l2=graphene.Float())
+
+    def resolve_hellyson(self, info, first_name, last_name):
+        return Hellyson(first_name=first_name, last_name=last_name)
+
+    def resolve_quadrado(self, info, l1, l2):
+        return Quadrado(l1=l1, l2=l2)
+
 
 
 class CreatePost(graphene.Mutation):
@@ -71,6 +100,7 @@ class CreatePost(graphene.Mutation):
         username = graphene.String(required=True)
 
     post = graphene.Field(lambda: PostObject)
+    posts_quantity = graphene.Field(graphene.Int)
 
     def mutate(self, info, title, body, username):
         user = User.query.filter_by(username=username).first()
@@ -79,7 +109,9 @@ class CreatePost(graphene.Mutation):
             post.author = user
         db.session.add(post)
         db.session.commit()
-        return CreatePost(post=post)
+
+        posts_quantity = db.session.query(Post).count()
+        return CreatePost(post=post, posts_quantity=posts_quantity)
 
 
 class Mutation(graphene.ObjectType):
@@ -108,3 +140,29 @@ def index():
 
 if __name__ == '__main__':
     app.run()
+# {
+#   allPosts{
+#     edges{
+#       node{
+#         title
+#         body
+#         author{
+#           username
+#         }
+#       }
+#     }
+#   }
+# }
+# mutation {
+#   createPost(username:"Hellyson", title:"Creating a GraphQL server with flask", body:"GraphQL is a query language for APIs and a runtime for fulfilling those queries with your existing data. GraphQL provides a complete and understandable description of the data in your API, gives clients the power to ask for exactly what they need and nothing more, makes it easier to evolve APIs over time, and enables powerful developer tools."){
+#     post{
+#       title
+#       body
+#       author{
+#         username
+#       }
+#     }
+#   }
+# }
+
+
